@@ -16,7 +16,7 @@ function App() {
   const [seekTime, setSeekTime] = useState(null);
 
   const { data, isValidating } = useSWR(
-    session ? `http://localhost:8080/replay/${session.year}/${session.round}` : null,
+    session ? `http://localhost:8000/replay/${session.year}/${session.round}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );

@@ -7,7 +7,7 @@ export function RaceSelector({ onSelect, disabled }) {
   const [year, setYear] = useState(2023);
   
   const { data: schedule } = useSWR(
-    `http://localhost:8080/schedule/${year}`,
+    `http://localhost:8000/schedule/${year}`,
     fetcher
   );
 
