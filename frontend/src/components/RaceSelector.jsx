@@ -1,6 +1,8 @@
 import useSWR from 'swr';
 import { useState } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const fetcher = url => fetch(url).then(r => r.json());
 
 export function RaceSelector({ onSelect }) {
@@ -8,7 +10,7 @@ export function RaceSelector({ onSelect }) {
   const [round, setRound] = useState('');
 
   const { data: schedule, isLoading } = useSWR(
-    `http://localhost:8000/schedule/${year}`,
+    `${API_BASE_URL}/schedule/${year}`,
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true }
   );
@@ -26,8 +28,8 @@ export function RaceSelector({ onSelect }) {
   };
 
   return (
-    <div className="flex gap-4 items-center bg-zinc-900 px-6 py-3 border-b border-zinc-800 shadow-md">
-      <div className="flex bg-f1red px-3 py-1 rounded text-white font-black italic tracking-tighter text-2xl mr-4 shadow-lg">
+    <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center bg-zinc-900 px-4 sm:px-6 py-3 border-b border-zinc-800 shadow-md">
+      <div className="flex bg-f1red px-3 py-1 rounded text-white font-black italic tracking-tighter text-2xl sm:mr-4 shadow-lg w-fit">
         F1<span className="text-zinc-950 ml-1">REPLAY</span>
       </div>
       

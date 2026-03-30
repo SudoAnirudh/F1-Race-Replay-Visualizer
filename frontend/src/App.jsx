@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import useSWR from 'swr';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import { RaceSelector } from './components/RaceSelector';
 import { ReplayCanvas } from './components/ReplayCanvas';
 import { Leaderboard } from './components/Leaderboard';
@@ -16,7 +18,7 @@ function App() {
   const [seekTime, setSeekTime] = useState(null);
 
   const { data, isValidating } = useSWR(
-    session ? `http://localhost:8000/replay/${session.year}/${session.round}` : null,
+    session ? `${API_BASE_URL}/replay/${session.year}/${session.round}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -43,7 +45,7 @@ function App() {
       
       {data && <StatusBanner data={data} time={time} />}
       
-      <main className="flex-1 flex gap-6 p-6 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-zinc-950">
+      <main className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-zinc-950 overflow-y-auto lg:overflow-y-hidden">
         
         {/* Left Side: Canvas + Scrubber */}
         <div className="flex-1 flex flex-col h-full min-w-0 relative">
@@ -77,7 +79,7 @@ function App() {
         </div>
 
         {/* Right Side: Leaderboard */}
-        <div className="w-80 h-full flex flex-col shrink-0">
+        <div className="w-full lg:w-80 h-96 lg:h-full flex flex-col shrink-0 mb-6 lg:mb-0">
           <Leaderboard data={data} time={time} />
         </div>
 
