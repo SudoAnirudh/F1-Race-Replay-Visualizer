@@ -11,6 +11,22 @@ if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
 fastf1.Cache.enable_cache(cache_dir)
 
+# In-memory session cache to avoid repeated loads
+_session_cache = {}
+
+def load_session(year: int, round_num: int, session_type: str = 'R'):
+    """
+    Cached session loader for both Replay and Analytics.
+    """
+    key = f"{year}_{round_num}_{session_type}"
+    if key in _session_cache:
+        return _session_cache[key]
+    
+    session = fastf1.get_session(year, round_num, session_type)
+    session.load(telemetry=True, weather=False, messages=False)
+    _session_cache[key] = session
+    return session
+
 def get_pit_windows(laps: pd.DataFrame) -> List[PitWindow]:
     pits = laps[laps['PitInTime'].notna()]
     return [
@@ -43,8 +59,7 @@ def get_lap_entries(laps: pd.DataFrame) -> List[LapEntry]:
     return sorted(entries, key=lambda e: e.lap_number)
 
 def get_race_replay_data(year: int, round_num: int) -> dict:
-    session = fastf1.get_session(year, round_num, 'R')
-    session.load(telemetry=True, weather=False, messages=False)
+    session = load_session(year, round_num, 'R')
 
     drivers = session.drivers
     driver_data = {}

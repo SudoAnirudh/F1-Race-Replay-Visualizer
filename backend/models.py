@@ -57,3 +57,46 @@ class ScheduleEvent(BaseModel):
     RoundNumber: int
     EventName: str
     Country: str
+
+# --- Analytics Models ---
+
+class AnalyticsLapTime(BaseModel):
+    Driver: str
+    LapNumber: int
+    LapTimeSec: Optional[float]
+    Compound: str
+    TyreLife: int
+    IsPersonalBest: bool
+
+class AnalyticsTelemetryPoint(BaseModel):
+    Distance: float
+    Speed: float
+    Throttle: float
+    Brake: bool
+    nGear: int
+    RPM: int
+
+class AnalyticsStrategy(BaseModel):
+    Driver: str
+    LapNumber: int
+    Stint: int
+    Compound: str
+    TyreLife: int
+    PitInTime: Optional[float]
+    PitOutTime: Optional[float]
+
+class AnalyticsTeamPace(BaseModel):
+    team: str
+    median_lap_sec: float
+
+class AnalyticsSectors(BaseModel):
+    Driver: str
+    Sector1TimeSec: float
+    Sector2TimeSec: float
+    Sector3TimeSec: float
+    LapTimeSec: float
+
+class AnalyticsPosition(BaseModel):
+    Driver: str
+    LapNumber: int
+    Position: int
