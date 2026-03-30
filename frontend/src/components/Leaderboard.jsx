@@ -1,72 +1,147 @@
 import { getTeamColor } from '../utils/teamColors';
-import { Timer, Flag, TrendingUp, TrendingDown } from 'lucide-react';
+import { Timer, Flag, TrendingUp, TrendingDown, Circle, AlertTriangle } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 
 /**
  * Get the race progress for a driver at time t using actual lap data.
- * Returns { completedLaps, lapProgress } where:
- * - completedLaps: number of laps finished
- * - lapProgress: fractional progress into the current lap (0-1)
- * Higher completedLaps = further ahead. Same laps = more lapProgress = further ahead.
+ * Returns { completedLaps, lapProgress, score, lastLapEnd }
  */
 function getDriverRaceProgress(laps, t) {
-  if (!laps || laps.length === 0) return { completedLaps: 0, lapProgress: 0, score: 0 };
+  if (!laps || laps.length === 0) return { completedLaps: 0, lapProgress: 0, score: 0, lastLapEnd: 0 };
 
   let completedLaps = 0;
+  let lastLapEnd = 0;
   let currentLapStart = 0;
   let currentLapEnd = Infinity;
 
-  for (const lap of laps) {
+  // Search for the current lap position
+  for (let i = 0; i < laps.length; i++) {
+    const lap = laps[i];
     if (t >= lap.lap_end) {
-      // This lap is complete
       completedLaps = lap.lap_number;
-      currentLapStart = lap.lap_end; // Next lap starts when this one ended
+      lastLapEnd = lap.lap_end;
+      currentLapStart = lap.lap_end;
     } else if (t >= lap.lap_start) {
-      // We're in this lap
       currentLapStart = lap.lap_start;
       currentLapEnd = lap.lap_end;
       break;
     }
   }
 
-  // Calculate fractional progress into the current lap
   const lapDuration = currentLapEnd - currentLapStart;
   const lapProgress = lapDuration > 0 && lapDuration < Infinity
     ? Math.min(1, (t - currentLapStart) / lapDuration) 
     : 0;
 
-  // Combined score: completed laps + fractional progress gives a single sortable number
   const score = completedLaps + lapProgress;
 
-  return { completedLaps, lapProgress, score };
+  return { completedLaps, lapProgress, score, lastLapEnd };
 }
+
+const TYRE_COLORS = {
+  'SOFT': 'text-red-500',
+  'MEDIUM': 'text-yellow-500',
+  'HARD': 'text-zinc-100',
+  'INTERMEDIATE': 'text-emerald-500',
+  'WET': 'text-blue-500',
+  'UNKNOWN': 'text-zinc-600'
+};
 
 export function Leaderboard({ data, time }) {
   const prevOrderRef = useRef([]);
 
-  // All hooks called unconditionally before any early returns
-  const sortedDrivers = useMemo(() => {
+  const processedDrivers = useMemo(() => {
     if (!data) return [];
-    const entries = Object.entries(data.drivers).map(([num, drv]) => {
+    
+    // 1. Gather raw progress for all drivers
+    const drivers = Object.entries(data.drivers).map(([num, drv]) => {
       const progress = getDriverRaceProgress(drv.laps, time);
-      return { num, drv, ...progress };
+      
+      // Determine Current Tyre
+      let currentTyre = 'UNKNOWN';
+      const activeWindow = drv.pit_windows.find(pw => time >= pw.in_time && (pw.out_time === null || time <= pw.out_time));
+      if (activeWindow) {
+        currentTyre = activeWindow.compound;
+      } else {
+        const pastWindows = drv.pit_windows
+          .filter(pw => time > (pw.out_time ?? pw.in_time))
+          .sort((a, b) => (b.out_time ?? b.in_time) - (a.out_time ?? a.in_time));
+        
+        if (pastWindows.length > 0) {
+          currentTyre = pastWindows[0].compound;
+        } else {
+          currentTyre = drv.pit_windows[0]?.compound || 'SOFT';
+        }
+      }
+
+      // Detect DNF
+      const lastPosTime = drv.positions.length > 0 ? drv.positions[drv.positions.length - 1].t : 0;
+      const isRetired = time > lastPosTime + 20 && time < data.duration_seconds - 5;
+
+      return { 
+        num, 
+        drv, 
+        ...progress, 
+        tyre: currentTyre, 
+        isRetired 
+      };
     });
-    // Sort by score descending (most laps + furthest into current lap = leader)
-    entries.sort((a, b) => b.score - a.score);
-    return entries;
+
+    // 2. Sort primary standings
+    drivers.sort((a, b) => {
+      if (a.isRetired && !b.isRetired) return 1;
+      if (!a.isRetired && b.isRetired) return -1;
+      return b.score - a.score;
+    });
+
+    // 3. Gap Analysis
+    const leader = drivers[0];
+    const avgLapTime = 90; // Default estimate for F1
+
+    return drivers.map((d, i) => {
+      let gapText = '';
+      if (i === 0) {
+        gapText = 'INTERVAL';
+      } else if (d.isRetired) {
+        gapText = 'STOPPED';
+      } else if (leader.completedLaps - d.completedLaps > 1) {
+        gapText = `+${leader.completedLaps - d.completedLaps} LAPS`;
+      } else {
+        // Hybrid Calculation:
+        // Try to get exact gap at the last common completed lap
+        const commonLap = Math.min(d.completedLaps, leader.completedLaps);
+        let exactGap = null;
+        if (commonLap > 0) {
+          const leaderLapEnd = leader.drv.laps.find(l => Number(l.lap_number) === commonLap)?.lap_end;
+          const driverLapEnd = d.drv.laps.find(l => Number(l.lap_number) === commonLap)?.lap_end;
+          if (leaderLapEnd && driverLapEnd) {
+            exactGap = driverLapEnd - leaderLapEnd;
+          }
+        }
+
+        if (exactGap !== null) {
+          // If the leader is further ahead in current lap, add some estimated live delta
+          const scoreDiff = leader.score - d.score;
+          // Use exact gap at finish line as base, or just the score diff for smooth updates
+          gapText = `+${(scoreDiff * avgLapTime).toFixed(1)}s`;
+        } else {
+          // Purely score-based estimate for first lap
+          gapText = `+${((leader.score - d.score) * avgLapTime).toFixed(1)}s`;
+        }
+      }
+      return { ...d, gapText };
+    });
   }, [data, Math.floor(time)]);
 
   const positionChanges = useMemo(() => {
     const changes = {};
-    const currentOrder = sortedDrivers.map(e => e.drv.code);
+    const currentOrder = processedDrivers.map(e => e.drv.code);
     const prevOrder = prevOrderRef.current;
 
     if (prevOrder.length > 0) {
       currentOrder.forEach((code, newIdx) => {
         const oldIdx = prevOrder.indexOf(code);
-        if (oldIdx === -1) {
-          changes[code] = 0;
-        } else {
+        if (oldIdx !== -1) {
           changes[code] = oldIdx - newIdx;
         }
       });
@@ -74,9 +149,8 @@ export function Leaderboard({ data, time }) {
 
     prevOrderRef.current = currentOrder;
     return changes;
-  }, [sortedDrivers]);
+  }, [processedDrivers]);
 
-  // Now safe to early-return
   if (!data) return (
     <div className="w-full h-full glass rounded-xl shadow-2xl flex flex-col p-4 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
@@ -103,73 +177,87 @@ export function Leaderboard({ data, time }) {
         </div>
         <div className="flex items-center gap-1.5 text-zinc-600">
           <Timer size={10} />
-          <span className="text-[9px] font-mono">{sortedDrivers.length} cars</span>
+          <span className="text-[9px] font-mono">{processedDrivers.length} cars</span>
         </div>
       </div>
 
       {/* Driver list */}
       <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
-        {sortedDrivers.map(({ num, drv, completedLaps }, i) => {
-          const isPitting = drv.pit_windows.some(
+        {processedDrivers.map((d, i) => {
+          const isPitting = d.drv.pit_windows.some(
             pw => time >= pw.in_time && time <= (pw.out_time ?? pw.in_time + 35)
           );
-          const teamColor = `#${getTeamColor(drv.team, drv.color)}`;
-          const change = positionChanges[drv.code] || 0;
+          const teamColor = `#${getTeamColor(d.drv.team, d.drv.color)}`;
+          const change = positionChanges[d.drv.code] || 0;
           const isLeader = i === 0;
           
           return (
             <div 
-              key={drv.code} 
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 transition-all duration-300 group cursor-default ${
+              key={d.drv.code} 
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg mb-0.5 transition-all duration-300 group cursor-default ${
                 isLeader 
                   ? 'bg-zinc-800/40 border border-zinc-700/30' 
-                  : 'bg-zinc-950/30 hover:bg-zinc-800/60'
+                  : d.isRetired ? 'opacity-50 grayscale bg-zinc-950/20' : 'bg-zinc-950/30 hover:bg-zinc-800/60'
               }`}
             >
-              {/* Position number */}
+              {/* Position */}
               <span className={`font-mono text-[10px] w-5 text-center font-bold tabular-nums ${
-                isLeader ? 'text-f1red' : 'text-zinc-600'
+                isLeader ? 'text-f1red' : d.isRetired ? 'text-zinc-700' : 'text-zinc-600'
               }`}>
-                {String(i + 1).padStart(2, '0')}
+                {d.isRetired ? 'RET' : String(i + 1).padStart(2, '0')}
               </span>
               
               {/* Team color bar */}
               <div 
-                className="w-[3px] h-6 rounded-full shrink-0 transition-all duration-300 group-hover:h-7" 
+                className="w-[3px] h-6 rounded-full shrink-0 transition-all duration-300 group-hover:h-8" 
                 style={{ 
                   backgroundColor: teamColor,
                   boxShadow: isLeader ? `0 0 8px ${teamColor}40` : 'none',
                 }}
               />
               
-              {/* Driver info */}
               <div className="flex-1 flex items-center justify-between min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={`font-bold font-mono tracking-wider text-sm transition-colors ${
+                  <span className={`font-bold font-mono tracking-wider text-[13px] transition-colors ${
                     isLeader ? 'text-white' : 'group-hover:text-white'
                   }`}>
-                    {drv.code}
+                    {d.drv.code}
                   </span>
-                  <span className="text-[9px] text-zinc-600 font-mono tabular-nums">
-                    L{completedLaps}
-                  </span>
+                  
+                  {/* Tyre indicator */}
+                  {!d.isRetired && (
+                    <div className={`flex items-center px-1 rounded-full border border-current opacity-70 transition-opacity scale-90 ${TYRE_COLORS[d.tyre] || TYRE_COLORS.UNKNOWN}`}>
+                      <Circle size={6} fill="currentColor" strokeWidth={0} />
+                      <span className="text-[7px] font-black ml-0.5">{d.tyre[0]}</span>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="flex items-center gap-1.5">
-                  {/* Position change indicator */}
-                  {change !== 0 && (
-                    <span className={`flex items-center text-[8px] font-bold font-mono ${
+                <div className="flex items-center gap-2">
+                  {/* Live Gap */}
+                  {!d.isRetired && (
+                    <span className={`text-[10px] font-mono tabular-nums font-bold ${isLeader ? 'text-zinc-500' : 'text-zinc-300'}`}>
+                      {d.gapText}
+                    </span>
+                  )}
+
+                  {/* Move indicator */}
+                  {change !== 0 && !d.isRetired && (
+                    <span className={`flex items-center text-[8px] font-bold ${
                       change > 0 ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                      {change > 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-                      <span className="ml-0.5">{Math.abs(change)}</span>
+                      {change > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                     </span>
                   )}
 
                   {isPitting && (
-                    <span className="bg-white text-black text-[8px] font-extrabold px-1.5 py-0.5 rounded animate-pulse tracking-wider">
+                    <span className="bg-white text-black text-[8px] font-extrabold px-1 py-0.5 rounded animate-pulse">
                       PIT
                     </span>
+                  )}
+                  
+                  {d.isRetired && (
+                    <AlertTriangle size={10} className="text-red-500 animate-pulse" />
                   )}
                 </div>
               </div>
