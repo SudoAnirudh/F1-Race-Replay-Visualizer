@@ -39,14 +39,14 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-zinc-950 flex flex-col text-white font-sans overflow-hidden">
-      <RaceSelector onSelect={handleSelectRace} disabled={isValidating} />
+      <RaceSelector onSelect={handleSelectRace} />
       
       {data && <StatusBanner data={data} time={time} />}
       
-      <main className="flex-1 flex gap-6 p-6 min-h-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-zinc-950">
+      <main className="flex-1 flex gap-6 p-6 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-zinc-950">
         
         {/* Left Side: Canvas + Scrubber */}
-        <div className="flex-1 flex flex-col h-full relative">
+        <div className="flex-1 flex flex-col h-full min-w-0 relative">
           <div className="flex-1 min-h-0 relative">
             {session ? (
               <ReplayCanvas 

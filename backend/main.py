@@ -13,7 +13,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.get("/schedule/{year}")
-async def schedule(year: int):
+def schedule(year: int):
     # Fetch schedule from FastF1
     events = fastf1.get_event_schedule(year)
     # Filter for full race weekends
@@ -21,7 +21,7 @@ async def schedule(year: int):
     return events[['RoundNumber', 'EventName', 'Country']].to_dict(orient='records')
 
 @app.get("/replay/{year}/{round_num}")
-async def replay(year: int, round_num: int):
+def replay(year: int, round_num: int):
     cache_key = f"{year}_{round_num}"
     data = lru_cache.get(cache_key)
     if data:

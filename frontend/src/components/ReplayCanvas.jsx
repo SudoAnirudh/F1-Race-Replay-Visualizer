@@ -24,12 +24,12 @@ export function ReplayCanvas({ data, playing, speed, seekTime, onTimeUpdate }) {
   useReplayEngine(canvasRef, data, playing, speed, onTimeUpdate, seekTime);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative cursor-crosshair">
+    <div ref={containerRef} className="relative h-full w-full min-w-0 cursor-crosshair overflow-hidden">
       <canvas
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className="block bg-zinc-900 rounded-xl border border-zinc-800 shadow-2xl"
+        className="block h-full w-full bg-zinc-900 rounded-xl border border-zinc-800 shadow-2xl"
       />
       {!data && (
         <div className="absolute inset-0 flex items-center justify-center">

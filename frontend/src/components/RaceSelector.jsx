@@ -3,13 +3,27 @@ import { useState } from 'react';
 
 const fetcher = url => fetch(url).then(r => r.json());
 
-export function RaceSelector({ onSelect, disabled }) {
+export function RaceSelector({ onSelect }) {
   const [year, setYear] = useState(2023);
-  
-  const { data: schedule } = useSWR(
+  const [round, setRound] = useState('');
+
+  const { data: schedule, isLoading } = useSWR(
     `http://localhost:8000/schedule/${year}`,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false, keepPreviousData: true }
   );
+
+  const handleYearChange = (event) => {
+    setYear(Number(event.target.value));
+    setRound('');
+  };
+
+  const handleRoundChange = (event) => {
+    const nextRound = event.target.value;
+    setRound(nextRound);
+    if (!nextRound) return;
+    onSelect(year, Number(nextRound));
+  };
 
   return (
     <div className="flex gap-4 items-center bg-zinc-900 px-6 py-3 border-b border-zinc-800 shadow-md">
@@ -20,9 +34,8 @@ export function RaceSelector({ onSelect, disabled }) {
       <div className="flex flex-col">
         <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Season</label>
         <select 
-          disabled={disabled}
           value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
+          onChange={handleYearChange}
           className="bg-zinc-800 border-none text-white text-sm rounded-md px-3 py-1.5 outline-none cursor-pointer hover:bg-zinc-700 transition font-mono"
         >
           {[2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025].map(y => (
@@ -34,11 +47,14 @@ export function RaceSelector({ onSelect, disabled }) {
       <div className="flex flex-col flex-1 max-w-sm">
         <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Race Selection</label>
         <select 
-          disabled={disabled || !schedule}
-          onChange={(e) => onSelect(year, Number(e.target.value))}
+          disabled={!schedule?.length}
+          value={round}
+          onChange={handleRoundChange}
           className="bg-zinc-800 border-none text-white text-sm rounded-md px-3 py-1.5 outline-none cursor-pointer hover:bg-zinc-700 transition w-full"
         >
-          <option value="">-- Choose a Grand Prix --</option>
+          <option value="">
+            {isLoading && !schedule?.length ? '-- Loading races --' : '-- Choose a Grand Prix --'}
+          </option>
           {schedule?.map(ev => (
             <option key={ev.RoundNumber} value={ev.RoundNumber}>
               Round {ev.RoundNumber} - {ev.EventName} ({ev.Country})
