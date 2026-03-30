@@ -40,15 +40,15 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 flex flex-col text-white font-sans overflow-hidden">
+    <div className="h-screen w-screen bg-zinc-950 flex flex-col text-white overflow-hidden">
       <RaceSelector onSelect={handleSelectRace} />
       
       {data && <StatusBanner data={data} time={time} />}
       
-      <main className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-zinc-950 overflow-y-auto lg:overflow-y-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row gap-3 lg:gap-4 p-3 lg:p-4 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900/50 to-zinc-950 overflow-y-auto lg:overflow-y-hidden">
         
         {/* Left Side: Canvas + Scrubber */}
-        <div className="flex-1 flex flex-col h-full min-w-0 relative">
+        <div className="flex-1 flex flex-col h-full min-w-0 relative group">
           <div className="flex-1 min-h-0 relative">
             {session ? (
               <ReplayCanvas 
@@ -57,12 +57,26 @@ function App() {
                 speed={speed}
                 seekTime={seekTime}
                 onTimeUpdate={handleTimeUpdate}
+                time={time}
               />
             ) : (
-              <div className="flex-1 h-full border border-dashed border-zinc-700/50 rounded-2xl flex flex-col items-center justify-center text-zinc-600 bg-zinc-900/20 backdrop-blur-sm">
-                <svg className="w-24 h-24 mb-6 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 3.5L18.5 10H13V5.5zM6 20V4h5v7h7v9H6z"/></svg>
-                <div className="text-xl font-bold tracking-widest uppercase">Select a Race to Load Telemetry</div>
-                <div className="text-sm mt-2 opacity-50 font-mono">Fetching ~20MB of high-fidelity position data</div>
+              <div className="flex-1 h-full border border-dashed border-zinc-800/40 rounded-2xl flex flex-col items-center justify-center text-zinc-600 bg-zinc-900/20 backdrop-blur-sm animate-fadeIn">
+                <div className="relative mb-8">
+                  {/* Animated car icon */}
+                  <svg className="w-20 h-20 opacity-15" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+                  </svg>
+                  {/* Pulse rings */}
+                  <div className="absolute inset-0 -m-4 border border-zinc-800/20 rounded-full animate-ping" style={{ animationDuration: '3s' }} />
+                  <div className="absolute inset-0 -m-8 border border-zinc-800/10 rounded-full animate-ping" style={{ animationDuration: '4s' }} />
+                </div>
+                <div className="text-lg font-bold tracking-[0.2em] uppercase text-glow-red">Select a Race</div>
+                <div className="text-xs mt-2 opacity-40 font-mono tracking-wider">Choose a Grand Prix above to start replay</div>
+                
+                {/* Grid pattern decoration */}
+                <div className="absolute inset-0 opacity-[0.02] pointer-events-none" 
+                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+                />
               </div>
             )}
           </div>
@@ -79,7 +93,7 @@ function App() {
         </div>
 
         {/* Right Side: Leaderboard */}
-        <div className="w-full lg:w-80 h-96 lg:h-full flex flex-col shrink-0 mb-6 lg:mb-0">
+        <div className="w-full lg:w-72 h-96 lg:h-full flex flex-col shrink-0 mb-4 lg:mb-0">
           <Leaderboard data={data} time={time} />
         </div>
 
